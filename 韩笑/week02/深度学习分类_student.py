@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
 # ... (Data loading and preprocessing remains the same) ...
-dataset = pd.read_csv("../Week01/dataset.csv", sep="\t", header=None)
+dataset = pd.read_csv("../week01/dataset.csv", sep="\t", header=None)
 texts = dataset[0].tolist()#数据集的第一列 文本
 string_labels = dataset[1].tolist()#数据集的第二列 标签
 #数据集预处理
