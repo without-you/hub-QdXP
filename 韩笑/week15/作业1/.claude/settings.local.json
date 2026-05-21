@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python -c \"import app.main; print\\('导入成功'\\)\")",
+      "Bash(pip list *)",
+      "Bash(python -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "WebSearch",
+      "Read(//c//**)",
+      "Read(//c/Users/韩笑笑/**)",
+      "Read(//d//**)",
+      "Bash(where kafka-server-start.bat)",
+      "Bash(docker --version)",
+      "Bash(docker rm *)",
+      "Bash(docker run *)",
+      "Bash(lsof -ti:8000)",
+      "Bash(xargs kill -9)",
+      "Bash(powershell -Command \"Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 8000\\).OwningProcess -Force\")",
+      "Bash(taskkill /F /PID 27084)",
+      "Bash(curl -s http://localhost:8001/health)"
+    ]
+  }
+}
