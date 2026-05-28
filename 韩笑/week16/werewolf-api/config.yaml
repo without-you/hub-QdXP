@@ -1,0 +1,34 @@
+# ============================================================
+# 狼人杀 Team 系统 — 全局配置文件
+# ============================================================
+
+# LLM 模型配置
+llm:
+  provider: deepseek           # deepseek | openai | qwen | litellm
+  model: deepseek-v4-pro       # 模型名（Lit
+  api_key: sk-3e07b7afd8994653af2f57fe4cf44dc3
+  base_url: https://api.deepseek.com
+  temperature: 0.7
+  max_tokens: 1024               # Agent 决策只需简短 JSON，不需要长输出
+  reasoning_effort: low          # low | medium | high（DeepSeek 专用，low 更快）
+  enable_thinking: false         # 关闭长思考加速响应
+  request_timeout: 30.0         # 单次请求超时（秒）
+  max_concurrent: 6             # 同时推理的 Agent 数量限制
+
+# 服务器配置
+server:
+  host: 0.0.0.0
+  port: 8000
+  reload: false
+
+# 数据库
+database:
+  path: werewolf.db
+
+# 游戏默认配置
+game:
+  board_type: standard_6
+  shuffle_roles: true
+  speech_timeout: 120
+  vote_timeout: 60
+  night_timeout: 30

@@ -1,0 +1,28 @@
+{
+  "board_type": "6_standard",
+  "description": "标准6人局：2狼人 + 1预言家 + 1女巫 + 2平民",
+  "total_players": 6,
+  "roles": {
+    "werewolf": 2,
+    "seer": 1,
+    "witch": 1,
+    "villager": 2
+  },
+  "win_condition": "edge_kill",
+  "rules": {
+    "witch_can_self_save_first_night": true,
+    "witch_has_poison": false,
+    "sheriff_election": true,
+    "sheriff_vote_power": 1.5,
+    "allow_wolf_self_destruct": true,
+    "dead_can_last_words": true
+  },
+  "default_llm_model": "qwen3-8b",
+  "timeouts": {
+    "night_wolf": 60,
+    "night_seer": 30,
+    "night_witch": 30,
+    "speech": 120,
+    "vote": 60
+  }
+}
