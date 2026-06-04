@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向量检索与智能缓存服务平台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --primary-bg: rgba(99, 102, 241, 0.08);
+            --success: #10b981;
+            --success-light: #34d399;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gray-900);
+            color: var(--gray-100);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 粒子背景 */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            opacity: 0;
+            animation: float linear infinite;
+        }
+
+        @keyframes float {
+            0% { opacity: 0; transform: translateY(100vh) scale(0); }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { opacity: 0; transform: translateY(-10vh) scale(1); }
+        }
+
+        /* 顶部导航 */
+        .navbar {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .navbar-logo {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--primary), #a78bfa, #ec4899);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 18px;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6), 0 0 60px rgba(99, 102, 241, 0.2); }
+        }
+
+        .navbar-title {
+            font-size: 17px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .navbar-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--gray-400);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: statusPulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 10px currentColor; }
+            50% { opacity: 0.6; box-shadow: 0 0 20px currentColor; }
+        }
+
+        .provider-badge {
+            padding: 4px 10px;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--primary-light);
+            font-weight: 500;
+        }
+
+        /* 主布局 */
+        .layout {
+            display: flex;
+            height: calc(100vh - 60px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 340px;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(99, 102, 241, 0.15);
+            overflow-y: auto;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 28px;
+            animation: slideInLeft 0.5s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--primary-light);
+            margin-bottom: 14px;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-title::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: linear-gradient(to bottom, var(--primary), transparent);
+            border-radius: 2px;
+        }
+
+        /* 功能卡片 */
+        .feature-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+            border: 1px solid transparent;
+        }
+
+        .feature-card:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.2);
+            transform: translateX(4px);
+        }
+
+        .feature-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        .feature-icon.chat { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+        .feature-icon.cache { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .feature-icon.memory { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+        .feature-icon.index { background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
+        .feature-icon.search { background: linear-gradient(135deg, #ec4899, #db2777); box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); }
+        .feature-icon.filter { background: linear-gradient(135deg, #14b8a6, #0d9488); box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3); }
+        .feature-icon.provider { background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3); }
+        .feature-icon.sdk { background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+        .feature-icon.history { background: linear-gradient(135deg, #eab308, #ca8a04); box-shadow: 0 4px 12px rgba(234, 179, 8, 0.3); }
+        .feature-icon.intent { background: linear-gradient(135deg, #06b6d4, #0891b2); box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3); }
+
+        .feature-info { flex: 1; min-width: 0; }
+
+        .feature-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-200);
+        }
+
+        .feature-desc {
+            font-size: 11px;
+            color: var(--gray-500);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .feature-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            flex-shrink: 0;
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* 统计面板 */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-light), #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.success {
+            background: linear-gradient(135deg, var(--success), var(--success-light));
+            -webkit-background-clip: text;
+        }
+
+        .stat-value.warning {
+            background: linear-gradient(135deg, var(--warning), #fbbf24);
+            -webkit-background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--gray-500);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        .stat-bar {
+            height: 4px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .stat-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .stat-bar-fill.primary { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+        .stat-bar-fill.success { background: linear-gradient(90deg, var(--success), var(--success-light)); }
+
+        /* 清空缓存按钮 */
+        .btn-clear {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 16px;
+        }
+
+        .btn-clear:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+
+        /* 主内容区 */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        /* 对话区 */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px;
+        }
+
+        .chat-welcome {
+            text-align: center;
+            padding: 80px 20px;
+            animation: welcomeFade 1s ease-out;
+        }
+
+        @keyframes welcomeFade {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .chat-welcome-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: inline-block;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .chat-welcome h2 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, var(--primary-light), #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .chat-welcome p {
+            font-size: 15px;
+            color: var(--gray-400);
+            max-width: 440px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .chat-welcome-hints {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 32px;
+        }
+
+        .hint-chip {
+            padding: 10px 20px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            font-size: 13px;
+            color: var(--gray-300);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .hint-chip:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+        }
+
+        /* 消息 */
+        .message {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 24px;
+            max-width: 75%;
+            animation: messageIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .message.user { margin-left: auto; flex-direction: row-reverse; }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--primary), #a78bfa);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            color: white;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, var(--gray-600), var(--gray-700));
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            color: var(--gray-300);
+        }
+
+        .message-content {
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.7;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message.assistant .message-content {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            color: var(--gray-200);
+            backdrop-filter: blur(10px);
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+
+        .message.assistant .message-meta { color: var(--gray-500); }
+        .message.user .message-meta { color: transparent; }
+
+        .cache-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            animation: badgeIn 0.5s ease-out;
+        }
+
+        @keyframes badgeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .cache-badge.hit {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success-light);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .cache-badge.miss {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* 加载动画 */
+        .typing {
+            display: flex;
+            gap: 6px;
+            padding: 10px 0;
+        }
+
+        .typing span {
+            width: 8px;
+            height: 8px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+            box-shadow: 0 0 10px var(--primary-light);
+        }
+
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        /* 输入区 */
+        .input-area {
+            padding: 18px 28px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            max-width: 840px;
+            margin: 0 auto;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 14px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            resize: none;
+            height: 52px;
+            line-height: 24px;
+            background: rgba(30, 41, 59, 0.6);
+            color: var(--gray-200);
+            backdrop-filter: blur(10px);
+        }
+
+        .input-field::placeholder {
+            color: var(--gray-500);
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .btn-send {
+            padding: 0 24px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 52px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-send:hover {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-send:disabled {
+            background: var(--gray-700);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .input-options {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 10px;
+            max-width: 840px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--gray-400);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .checkbox-label:hover {
+            color: var(--gray-300);
+        }
+
+        .checkbox-label input {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .message { max-width: 95%; }
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+
+        /* 数字动画 */
+        .count-up {
+            transition: all 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- 粒子背景 -->
+    <div class="particles" id="particles"></div>
+
+    <div id="app">
+        <!-- 顶部导航 -->
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <div class="navbar-logo">V</div>
+                <span class="navbar-title">向量检索与智能缓存服务平台</span>
+            </div>
+            <div class="navbar-status">
+                <div class="status-indicator">
+                    <span class="status-dot" :class="{ offline: !isHealthy }"></span>
+                    <span>{{ isHealthy ? '服务运行中' : '服务离线' }}</span>
+                </div>
+                <span class="provider-badge">
+                    {{ config.llm?.provider }} / {{ config.embedding?.provider }}
+                </span>
+            </div>
+        </nav>
+
+        <!-- 主布局 -->
+        <div class="layout">
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <!-- 功能列表 -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">功能模块</div>
+                    <div v-for="(f, i) in features" :key="f.id" class="feature-card"
+                         :style="{ animationDelay: i * 0.05 + 's' }">
+                        <div class="feature-icon" :class="f.icon">
+                            {{ featureIcons[f.icon] }}
+                        </div>
+                        <div class="feature-info">
+                            <div class="feature-name">{{ f.name }}</div>
+                            <div class="feature-desc">{{ f.description }}</div>
+                        </div>
+                        <div class="feature-status"></div>
+                    </div>
+                </div>
+
+                <!-- 缓存统计 -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">缓存统计</div>
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <div class="stat-value success count-up">{{ animatedHitRate }}%</div>
+                            <div class="stat-label">缓存命中率</div>
+                            <div class="stat-bar">
+                                <div class="stat-bar-fill success"
+                                     :style="{ width: (stats.performance?.hit_rate || 0) + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value count-up">{{ animatedTotalQueries }}</div>
+                            <div class="stat-label">总查询数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value success count-up">{{ animatedSemanticCache }}</div>
+                            <div class="stat-label">语义缓存</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value warning count-up">{{ animatedEmbeddingCache }}</div>
+                            <div class="stat-label">嵌入缓存</div>
+                        </div>
+                    </div>
+
+                    <!-- 向量索引 -->
+                    <div class="stat-card" style="margin-top: 12px;">
+                        <div class="stat-value count-up">{{ animatedVectorDocs }}</div>
+                        <div class="stat-label">向量索引文档数</div>
+                    </div>
+
+                    <!-- 对话和意图 -->
+                    <div style="display: flex; gap: 10px; margin-top: 12px;">
+                        <div class="stat-card" style="flex:1;">
+                            <div class="stat-value count-up" style="font-size:22px;">
+                                {{ animatedSessions }}
+                            </div>
+                            <div class="stat-label">对话会话数</div>
+                        </div>
+                        <div class="stat-card" style="flex:1;">
+                            <div class="stat-value count-up" style="font-size:22px;">
+                                {{ animatedIntents }}
+                            </div>
+                            <div class="stat-label">已注册意图</div>
+                        </div>
+                    </div>
+
+                    <!-- 命中/未命中 -->
+                    <div style="display: flex; gap: 10px; margin-top: 12px;">
+                        <div class="stat-card" style="flex:1;">
+                            <div class="stat-value success count-up" style="font-size:20px;">
+                                {{ animatedHits }}
+                            </div>
+                            <div class="stat-label">命中</div>
+                        </div>
+                        <div class="stat-card" style="flex:1;">
+                            <div class="stat-value warning count-up" style="font-size:20px;">
+                                {{ animatedMisses }}
+                            </div>
+                            <div class="stat-label">未命中</div>
+                        </div>
+                    </div>
+
+                    <button class="btn-clear" @click="clearCache">清空缓存并重置统计</button>
+                </div>
+            </aside>
+
+            <!-- 主内容区 -->
+            <main class="main">
+                <!-- 对话区 -->
+                <div class="chat-container" ref="chatContainer">
+                    <!-- 欢迎页 -->
+                    <div v-if="messages.length === 0" class="chat-welcome">
+                        <div class="chat-welcome-icon">🤖</div>
+                        <h2>向量检索与智能缓存服务</h2>
+                        <p>基于语义缓存的智能对话，重复问题自动命中缓存，减少LLM调用</p>
+                        <div class="chat-welcome-hints">
+                            <span class="hint-chip" @click="sendHint('什么是向量检索？')">
+                                什么是向量检索？
+                            </span>
+                            <span class="hint-chip" @click="sendHint('解释一下语义缓存的原理')">
+                                解释语义缓存原理
+                            </span>
+                            <span class="hint-chip" @click="sendHint('Redis Stack有哪些优势？')">
+                                Redis Stack优势
+                            </span>
+                            <span class="hint-chip" @click="sendHint('如何优化LLM调用成本？')">
+                                优化LLM调用成本
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 消息列表 -->
+                    <div v-for="(msg, i) in messages" :key="i" class="message" :class="msg.role">
+                        <div class="message-avatar">
+                            {{ msg.role === 'user' ? '👤' : '🤖' }}
+                        </div>
+                        <div>
+                            <div class="message-content">{{ msg.content }}</div>
+                            <div class="message-meta" v-if="msg.role === 'assistant'">
+                                <span class="cache-badge" :class="msg.fromCache ? 'hit' : 'miss'">
+                                    {{ msg.fromCache ? '⚡ 缓存命中' : '🔄 实时调用' }}
+                                </span>
+                                <span v-if="msg.model">{{ msg.model }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 加载中 -->
+                    <div v-if="loading" class="message assistant">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-content">
+                            <div class="typing">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 输入区 -->
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea
+                            class="input-field"
+                            v-model="input"
+                            @keydown.enter.exact.prevent="send"
+                            placeholder="输入消息，按 Enter 发送..."
+                            rows="1"
+                        ></textarea>
+                        <button class="btn-send" @click="send" :disabled="!input.trim() || loading">
+                            发送 ↵
+                        </button>
+                    </div>
+                    <div class="input-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" v-model="useCache">
+                            启用语义缓存
+                        </label>
+                        <span style="font-size: 11px; color: var(--gray-500);">
+                            开启后，语义相似的问题将直接返回缓存结果
+                        </span>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // 创建粒子背景
+        function createParticles() {
+            const container = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.width = (Math.random() * 4 + 2) + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particle.style.animationDelay = (Math.random() * 10) + 's';
+                particle.style.opacity = Math.random() * 0.5 + 0.1;
+                container.appendChild(particle);
+            }
+        }
+        createParticles();
+
+        // Vue应用
+        const { createApp, ref, reactive, computed, onMounted, nextTick, watch } = Vue;
+
+        createApp({
+            setup() {
+                const input = ref('');
+                const messages = ref([]);
+                const loading = ref(false);
+                const useCache = ref(true);
+                const isHealthy = ref(false);
+                const chatContainer = ref(null);
+
+                const config = reactive({});
+                const stats = reactive({
+                    semantic_cache: {},
+                    embedding_cache: {},
+                    vector_index: {},
+                    conversation: {},
+                    intent: {},
+                    performance: {}
+                });
+                const features = ref([]);
+
+                // 动画数值
+                const animatedHitRate = ref(0);
+                const animatedTotalQueries = ref(0);
+                const animatedSemanticCache = ref(0);
+                const animatedEmbeddingCache = ref(0);
+                const animatedVectorDocs = ref(0);
+                const animatedSessions = ref(0);
+                const animatedIntents = ref(0);
+                const animatedHits = ref(0);
+                const animatedMisses = ref(0);
+
+                const featureIcons = {
+                    chat: '💬',
+                    cache: '⚡',
+                    memory: '🧠',
+                    index: '📊',
+                    search: '🔍',
+                    filter: '🔧',
+                    provider: '🔌',
+                    sdk: '📦',
+                    history: '📜',
+                    intent: '🎯'
+                };
+
+                // 数字动画函数
+                function animateValue(refVal, target, duration = 500) {
+                    const start = refVal.value;
+                    const diff = target - start;
+                    const startTime = Date.now();
+
+                    function update() {
+                        const elapsed = Date.now() - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                        refVal.value = Math.round(start + diff * eased);
+
+                        if (progress < 1) {
+                            requestAnimationFrame(update);
+                        }
+                    }
+
+                    requestAnimationFrame(update);
+                }
+
+                // 更新动画数值
+                function updateAnimatedValues() {
+                    animateValue(animatedHitRate, stats.performance?.hit_rate || 0);
+                    animateValue(animatedTotalQueries, stats.performance?.total_queries || 0);
+                    animateValue(animatedSemanticCache, stats.semantic_cache?.total_entries || 0);
+                    animateValue(animatedEmbeddingCache, stats.embedding_cache?.total_entries || 0);
+                    animateValue(animatedVectorDocs, stats.vector_index?.num_docs || 0);
+                    animateValue(animatedSessions, stats.conversation?.total_sessions || 0);
+                    animateValue(animatedIntents, stats.intent?.total_intents || 0);
+                    animateValue(animatedHits, stats.performance?.cache_hits || 0);
+                    animateValue(animatedMisses, stats.performance?.cache_misses || 0);
+                }
+
+                // 滚动到底部
+                function scrollToBottom() {
+                    nextTick(() => {
+                        if (chatContainer.value) {
+                            chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+                        }
+                    });
+                }
+
+                // API调用
+                async function fetchJSON(url, options = {}) {
+                    const res = await fetch(url, {
+                        headers: { 'Content-Type': 'application/json' },
+                        ...options
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    return res.json();
+                }
+
+                // 加载数据
+                async function loadData() {
+                    try {
+                        const [h, c, s, f] = await Promise.all([
+                            fetchJSON('/api/health'),
+                            fetchJSON('/api/config'),
+                            fetchJSON('/api/stats'),
+                            fetchJSON('/api/features')
+                        ]);
+                        isHealthy.value = h.status === 'healthy';
+                        Object.assign(config, c);
+                        Object.assign(stats, s);
+                        features.value = f.features;
+                        updateAnimatedValues();
+                    } catch (e) {
+                        isHealthy.value = false;
+                    }
+                }
+
+                // 发送消息
+                async function send() {
+                    const text = input.value.trim();
+                    if (!text || loading.value) return;
+
+                    messages.value.push({ role: 'user', content: text });
+                    input.value = '';
+                    loading.value = true;
+                    scrollToBottom();
+
+                    try {
+                        const data = await fetchJSON('/api/chat', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                message: text,
+                                use_cache: useCache.value
+                            })
+                        });
+
+                        messages.value.push({
+                            role: 'assistant',
+                            content: data.content,
+                            fromCache: data.from_cache,
+                            model: data.model,
+                            provider: data.provider
+                        });
+
+                        // 刷新统计
+                        const s = await fetchJSON('/api/stats');
+                        Object.assign(stats, s);
+                        updateAnimatedValues();
+                    } catch (e) {
+                        messages.value.push({
+                            role: 'assistant',
+                            content: '请求失败：' + e.message,
+                            fromCache: false
+                        });
+                    }
+
+                    loading.value = false;
+                    scrollToBottom();
+                }
+
+                function sendHint(text) {
+                    input.value = text;
+                    send();
+                }
+
+                async function clearCache() {
+                    try {
+                        await fetchJSON('/api/cache/clear', { method: 'POST' });
+                        const s = await fetchJSON('/api/stats');
+                        Object.assign(stats, s);
+                        updateAnimatedValues();
+                    } catch (e) {
+                        alert('清空失败：' + e.message);
+                    }
+                }
+
+                // 定期刷新统计
+                onMounted(() => {
+                    loadData();
+                    setInterval(loadData, 5000);
+                });
+
+                return {
+                    input, messages, loading, useCache, isHealthy,
+                    config, stats, features, featureIcons,
+                    chatContainer, send, sendHint, clearCache,
+                    animatedHitRate, animatedTotalQueries,
+                    animatedSemanticCache, animatedEmbeddingCache,
+                    animatedVectorDocs, animatedSessions, animatedIntents,
+                    animatedHits, animatedMisses
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

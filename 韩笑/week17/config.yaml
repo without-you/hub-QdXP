@@ -1,0 +1,92 @@
+# 向量检索与智能缓存服务平台 - 配置文件
+
+# LLM配置
+llm:
+  provider: deepseek                    # deepseek | openai | qwen | litellm
+  model: deepseek-v4-pro                # 模型名称
+  api_key: sk-3e07b7afd8994653af2f57fe4cf44dc3  # API密钥
+  base_url: https://api.deepseek.com    # API基础URL
+  max_tokens: 4096                      # 最大token数
+  temperature: 0.7                      # 温度参数
+  timeout: 30                           # 请求超时时间（秒）
+
+# Redis配置
+redis:
+  host: 127.0.0.1                        # Redis主机
+  port: 6379                            # Redis端口
+  db: 0                                 # 数据库编号
+  password: 123456                       # 密码（留空表示无密码）
+  max_connections: 100                   # 最大连接数
+  socket_timeout: 5                     # Socket超时
+  socket_connect_timeout: 5             # Socket连接超时
+  decode_responses: false               # 是否自动解码响应
+
+# 向量索引配置
+vector:
+  default_index_name: vector_index      # 默认索引名称
+  default_dimensions: 1536              # 默认向量维度
+  default_distance_metric: COSINE       # 默认距离度量 (COSINE, L2, IP)
+  index_type: FLAT                      # 索引类型 (FLAT, HNSW)
+  initial_cap: 1000                     # 初始容量
+  block_size: 1000                      # 块大小
+
+# 缓存配置
+cache:
+  # 语义缓存
+  semantic:
+    prefix: semantic_cache              # 缓存键前缀
+    similarity_threshold: 0.95          # 相似度阈值
+    default_ttl: 3600                   # 默认过期时间（秒）
+    max_entries: 10000                  # 最大缓存条目数
+
+  # 嵌入缓存
+  embedding:
+    prefix: embedding_cache             # 缓存键前缀
+    default_ttl: 86400                  # 默认过期时间（秒，24小时）
+    max_entries: 50000                  # 最大缓存条目数
+    batch_size: 100                     # 批量操作大小
+
+  # 过期策略
+  eviction:
+    strategy: lru                       # 淘汰策略 (lru, lfu, ttl)
+    check_interval: 300                 # 检查间隔（秒）
+    min_hit_rate: 0.1                   # 最小命中率阈值
+
+# 嵌入模型配置
+embedding:
+  provider: qwen                        # 嵌入模型提供商
+  model: text-embedding-v3              # 嵌入模型名称
+  api_key: sk-777ae59d8b3e451db4dd91fe6961dbe5  # API密钥
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1  # API基础URL
+  dimensions: 1024                      # 向量维度
+  batch_size: 32                        # 批量处理大小
+  max_retries: 3                        # 最大重试次数
+
+# 日志配置
+logging:
+  level: INFO                           # 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/app.log                    # 日志文件路径
+  max_bytes: 10485760                   # 最大文件大小（10MB）
+  backup_count: 5                       # 备份文件数量
+
+# 服务配置
+server:
+  host: 0.0.0.0                         # 服务主机
+  port: 8000                            # 服务端口
+  workers: 4                            # 工作进程数
+  reload: true                          # 是否自动重载（开发模式）
+  debug: false                          # 调试模式
+
+# 监控配置
+monitoring:
+  enabled: true                         # 是否启用监控
+  metrics_port: 9090                    # 指标端口
+  health_check_interval: 30             # 健康检查间隔（秒）
+
+# 安全配置
+security:
+  api_key_header: X-API-Key             # API密钥头
+  rate_limit: 100                       # 速率限制（请求/分钟）
+  allowed_origins:                      # 允许的源（CORS）
+    - "*"
